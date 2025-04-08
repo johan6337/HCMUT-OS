@@ -69,11 +69,9 @@ int __sys_killall(struct pcb_t *caller, struct sc_regs* regs)
             for (int j = i; j < running_list->size - 1; j++) {
                 running_list->proc[j] = running_list->proc[j + 1];
             }
+
             running_list->size--;
-            
-            // Decrement i since we shifted elements
             i--;
-            
             terminated_count++;
         }
     }
@@ -93,12 +91,9 @@ int __sys_killall(struct pcb_t *caller, struct sc_regs* regs)
                 for (int j = i; j < queue->size - 1; j++) {
                     queue->proc[j] = queue->proc[j + 1];
                 }
+
                 queue->size--;
-                
-                // Decrement i since we shifted elements
                 i--;
-                
-                // Increment counter
                 terminated_count++;
             }
         }
@@ -117,12 +112,9 @@ int __sys_killall(struct pcb_t *caller, struct sc_regs* regs)
             for (int j = i; j < ready_queue->size - 1; j++) {
                 ready_queue->proc[j] = ready_queue->proc[j + 1];
             }
+            
             ready_queue->size--;
-            
-            // Decrement i since we shifted elements
             i--;
-            
-            // Increment counter
             terminated_count++;
         }
     }
