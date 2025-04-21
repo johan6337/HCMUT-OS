@@ -1,12 +1,2 @@
-7 11
-calc
-calc
-calc
-calc
-calc
-calc
-calc
-calc
-calc
-calc
-calc
+20 1
+syscall 440 1
