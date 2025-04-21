@@ -38,7 +38,9 @@ int __sys_ni_syscall(struct pcb_t *caller, struct sc_regs *regs)
 #define __SYSCALL(nr, sym) case nr: return __##sym(caller,regs);
 int syscall(struct pcb_t *caller, uint32_t nr, struct sc_regs* regs)
 {
-	switch (nr) {
+   printf("Syscall handler: nr=%d\n", nr); // debug
+   
+   switch (nr) {
 	#include "syscalltbl.lst"
 	default: return __sys_ni_syscall(caller, regs);
 	}

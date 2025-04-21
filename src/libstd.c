@@ -17,6 +17,7 @@ int libsyscall (struct pcb_t *caller,
              uint32_t a2,
              uint32_t a3)
 {
+   printf("libsyscall: %s\n", sys_call_table[syscall_idx]); // debug
    struct sc_regs regs;
 
    regs.a1 = a1;
