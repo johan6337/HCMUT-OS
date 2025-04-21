@@ -17,11 +17,28 @@
 #include <pthread.h>
 #include <stdlib.h>
 
+// Declare the external variables
+#ifdef MLQ_SCHED
+extern struct queue_t mlq_ready_queue[MAX_PRIO];
+#else
+extern struct queue_t ready_queue;
+#endif
+
+// Helper function to get the basename of a path
+const char* get_proc_name(const char *path) {
+    const char *proc_name = path;
+    for(const char *p = path; *p != '\0'; p++) {
+        if (*p == '/') {
+            proc_name = p + 1;
+        }
+    }
+
+    return proc_name;
+}
 
 int __sys_killall(struct pcb_t *caller, struct sc_regs* regs)
 {
-    // printf("sys_killall excuted\n");
-    // return 0;
+    printf("-------sys_killall excuted-------\n");
 
     char proc_name[100];
     uint32_t data;
@@ -54,73 +71,58 @@ int __sys_killall(struct pcb_t *caller, struct sc_regs* regs)
 
     int terminated_count = 0;
 
-    struct queue_t *running_list = caller->running_list;
-    struct queue_t *mlq_ready_queue = caller->mlq_ready_queue;
-    
-    // Check processes in the running_list
-    for (int i = 0; i < running_list->size; i++) {
-        struct pcb_t *proc = running_list->proc[i];
-        
-        // Compare process name
-        if (strcmp(proc->path, proc_name) == 0) {
-            printf("Terminating running process with PID: %d - name: \"%s\"\n", proc->pid, proc_name);
-            
-            // Remove from running_list by shifting elements
-            for (int j = i; j < running_list->size - 1; j++) {
-                running_list->proc[j] = running_list->proc[j + 1];
-            }
-
-            running_list->size--;
-            i--;
-            terminated_count++;
-        }
-    }
-    
 #ifdef MLQ_SCHED
     // Check processes in MLQ ready queues
-    for (int prio = 0; prio < MAX_PRIO; prio++) {
+    for(int prio = 0; prio < MAX_PRIO; prio++) {
         struct queue_t *queue = &(mlq_ready_queue[prio]);
-        for (int i = 0; i < queue->size; i++) {
-            struct pcb_t *proc = queue->proc[i];
+        for(int m = 0; m < queue->size;) {
+            struct pcb_t *proc = queue->proc[m];
+            printf("Checking process PID: %d with path: \"%s\"\n", proc->pid, proc->path);
             
             // Compare process name
-            if (strcmp(proc->path, proc_name) == 0) {
+            if(strcmp(get_proc_name(proc->path), proc_name) == 0) {
                 printf("Terminating running process with PID: %d - name: \"%s\"\n", proc->pid, proc_name);
-                
+                free(proc); // Free the process memory
+
                 // Remove from ready queue by shifting elements
-                for (int j = i; j < queue->size - 1; j++) {
-                    queue->proc[j] = queue->proc[j + 1];
+                for(int n = m; n < queue->size - 1; n++) {
+                    queue->proc[n] = queue->proc[n + 1];
                 }
 
                 queue->size--;
-                i--;
                 terminated_count++;
+            } else {
+                m++;
             }
         }
     }
+
 #else
     // For non-MLQ scheduler, check the ready queue
-    struct queue_t *ready_queue = caller->ready_queue;
-    for (int i = 0; i < ready_queue->size; i++) {
-        struct pcb_t *proc = ready_queue->proc[i];
+    extern struct queue_t ready_queue;
+    for(int m = 0; m < ready_queue->size;) {
+        struct pcb_t *proc = ready_queue->proc[m];
         
         // Compare process name
-        if (strcmp(proc->path, proc_name) == 0) {
+        if(strcmp(get_proc_name(proc->path), proc_name) == 0) {
             printf("Terminating running process with PID: %d - name: \"%s\"\n", proc->pid, proc_name);
-            
+            free(proc); // Free the process memory
+
             // Remove from ready queue by shifting elements
-            for (int j = i; j < ready_queue->size - 1; j++) {
-                ready_queue->proc[j] = ready_queue->proc[j + 1];
+            for(int n = m; n < ready_queue->size - 1; n++) {
+                ready_queue->proc[n] = ready_queue->proc[n + 1];
             }
             
             ready_queue->size--;
-            i--;
             terminated_count++;
+        } else {
+            m++;
         }
     }
 #endif
     
     printf("Terminated %d processes with name: \"%s\"\n", terminated_count, proc_name);
-    
     return terminated_count; 
 }
+
+
