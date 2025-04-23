@@ -73,7 +73,7 @@ int __alloc(struct pcb_t *caller, int vmaid, int rgid, int size, int *alloc_addr
 
   /* TODO: commit the vmaid */
   // rgnode.vmaid
-
+  pthread_mutex_lock(&mmvm_lock);
   if (get_free_vmrg_area(caller, vmaid, size, &rgnode) == 0)
   {
     caller->mm->symrgtbl[rgid].rg_start = rgnode.rg_start;
@@ -105,7 +105,11 @@ int __alloc(struct pcb_t *caller, int vmaid, int rgid, int size, int *alloc_addr
   regs.a2 = vmaid;
   regs.a3 = inc_sz;
   
-  if (syscall(caller,17,&regs) <0) return -1;
+  if (syscall(caller,17,&regs) != 0) 
+  {
+     pthread_mutex_unlock(&mmvm_lock);
+     return -1;
+  }
   /* SYSCALL 17 sys_memmap */
 
   /* TODO: commit the limit increment */
@@ -122,7 +126,9 @@ int __alloc(struct pcb_t *caller, int vmaid, int rgid, int size, int *alloc_addr
   /* TODO: commit the allocation address 
   // *alloc_addr = ...
   */
- *alloc_addr =old_sbrk;
+  pthread_mutex_unlock(&mmvm_lock);
+
+ *alloc_addr = old_sbrk;
   return 0;
 }
 

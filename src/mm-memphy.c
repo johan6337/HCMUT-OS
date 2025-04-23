@@ -167,11 +167,20 @@ int MEMPHY_dump(struct memphy_struct *mp)
    //  for (int i = 0; i < mp->maxsz; i++) {
    //    // printf("%02x\n", mp->storage[i]);
    //  }
-   uint32_t* word_storage = (uint32_t*)mp->storage;
-   for (int i = 0; i < mp->maxsz / 4; ++i)
-      if (word_storage[i] != 0)
-         printf("%08x: %08x\n", i * 4, word_storage[i]);
-   return 0;
+   if (mp == NULL || mp->storage == NULL)
+        return -1;
+    
+    printf("Physical memory dump\n==== START ====\n");
+    for (int i = 0; i < mp->maxsz; ++i) {
+        // Only print hex content
+        printf("%02x ", mp->storage[i]);
+        // 16 bytes 1 line
+        if ((i + 1) % 16 == 0)
+            printf("\n");
+    }
+    printf("\n==== END ====\n");
+
+    return 0;
 }
 
 int MEMPHY_put_freefp(struct memphy_struct *mp, int fpn)
