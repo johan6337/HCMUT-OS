@@ -81,7 +81,6 @@ int __alloc(struct pcb_t *caller, int vmaid, int rgid, int size, int *alloc_addr
  
     *alloc_addr = rgnode.rg_start;
 
-    pthread_mutex_unlock(&mmvm_lock);
     return 0;
   }
 
