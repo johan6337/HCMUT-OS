@@ -12,6 +12,7 @@
 #include "syscall.h"
 #include "stdio.h"
 #include "libmem.h"
+#include "queue.h"
 #include <queue.h>
 #include <string.h>
 #include <pthread.h>
@@ -23,6 +24,8 @@ extern struct queue_t mlq_ready_queue[MAX_PRIO];
 #else
 extern struct queue_t ready_queue;
 #endif
+
+pthread_mutex_t queue_lock = PTHREAD_MUTEX_INITIALIZER;
 
 // Helper function to get the basename of a path
 const char* get_proc_name(const char *path) {
@@ -69,7 +72,27 @@ int __sys_killall(struct pcb_t *caller, struct sc_regs* regs)
     *        name in var proc_name
     */
 
+    pthread_mutex_lock(&queue_lock);
     int terminated_count = 0;
+
+    // // Check processes in the running list
+    // for (int j = 0; j < caller->running_list->size; j++) {
+    //     struct pcb_t *proc = caller->running_list->proc[j];
+
+    //     const char *filename = strrchr(proc->path, '/');
+
+    //     if (filename) {
+    //         filename++;
+    //     } else {
+    //         filename = proc->path;
+    //     } 
+
+    //     if (strcmp(filename, proc_name) == 0) {
+    //         printf("Terminating running process PID: %d, Name: %s\n", proc->pid, filename);
+    //         remove_from_queue(caller->running_list, proc);
+    //         proc->pc = -1;
+    //     }
+    // }
 
 #ifdef MLQ_SCHED
     // Check processes in MLQ ready queues
@@ -121,7 +144,9 @@ int __sys_killall(struct pcb_t *caller, struct sc_regs* regs)
     }
 #endif
     
+    pthread_mutex_unlock(&queue_lock);
     printf("Terminated %d processes with name: \"%s\"\n", terminated_count, proc_name);
+    
     return terminated_count; 
 }
 

@@ -53,9 +53,9 @@ int __mm_swap_page(struct pcb_t *caller, int vicfpn , int swpfpn)
 struct vm_rg_struct *get_vm_area_node_at_brk(struct pcb_t *caller, int vmaid, int size, int alignedsz)
 {
   struct vm_rg_struct * newrg;
-  struct vm_area_struct* cur_vma = get_vma_by_num(caller->mm->mmap,vmaid);
+  // struct vm_area_struct* cur_vma = get_vma_by_num(caller->mm->mmap,vmaid);
   /* TODO retrive current vma to obtain newrg, current comment out due to compiler redundant warning*/
-  //struct vm_area_struct *cur_vma = get_vma_by_num(caller->mm, vmaid);
+  struct vm_area_struct *cur_vma = get_vma_by_num(caller->mm, vmaid); // get_vma_by_num() expects an mm_struct *, not a vm_area_struct *
 
   newrg = malloc(sizeof(struct vm_rg_struct));
   newrg->rg_start = cur_vma->sbrk;
@@ -121,3 +121,6 @@ int inc_vma_limit(struct pcb_t *caller, int vmaid, int inc_sz)
 }
 
 // #endif
+
+
+

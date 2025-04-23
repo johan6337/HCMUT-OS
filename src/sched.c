@@ -11,9 +11,15 @@ static pthread_mutex_t queue_lock;
 
 static struct queue_t running_list;
 #ifdef MLQ_SCHED
-static struct queue_t mlq_ready_queue[MAX_PRIO];
+// static struct queue_t mlq_ready_queue[MAX_PRIO];
+// static int slot[MAX_PRIO];
+
+// Remove static to allow access from other files
+struct queue_t mlq_ready_queue[MAX_PRIO];
 static int slot[MAX_PRIO];
 #endif
+
+
 
 int queue_empty(void) {
 #ifdef MLQ_SCHED
@@ -27,13 +33,13 @@ int queue_empty(void) {
 
 void init_scheduler(void) {
 #ifdef MLQ_SCHED
-    int i ;
-
+	int i ;
 	for (i = 0; i < MAX_PRIO; i ++) {
 		mlq_ready_queue[i].size = 0;
 		slot[i] = MAX_PRIO - i; 
 	}
 #endif
+
 	ready_queue.size = 0;
 	run_queue.size = 0;
 	pthread_mutex_init(&queue_lock, NULL);
@@ -117,31 +123,24 @@ struct pcb_t * get_proc(void) {
 	return get_mlq_proc();
 }
 
-void put_proc(struct pcb_t * proc) {
-	// proc->ready_queue = &ready_queue;
-	// proc->mlq_ready_queue = mlq_ready_queue;
-	// proc->running_list = &running_list;
-  
+void put_proc(struct pcb_t * proc) {  
 	// /* TODO: put running proc to running_list */
 	// pthread_mutex_lock(&queue_lock);
     // enqueue(&running_list, proc);
 	// pthread_mutex_unlock(&queue_lock);	
 
-    
-	return put_mlq_proc(proc);
+	put_mlq_proc(proc);
 }
 
 void add_proc(struct pcb_t * proc) {
-	// proc->ready_queue = &ready_queue;
-	// proc->mlq_ready_queue = mlq_ready_queue;
-	// proc->running_list = & running_list;
-
 	// /* TODO: put running proc to running_list */
 	// enqueue(&running_list, proc);
 
-	return add_mlq_proc(proc);
+	add_mlq_proc(proc);
 }
+
 #else
+
 struct pcb_t * get_proc(void) {
 	struct pcb_t * proc = NULL;
 	/*TODO: get a process from [ready_queue].
@@ -171,6 +170,7 @@ void add_proc(struct pcb_t * proc) {
 	enqueue(&ready_queue, proc);
 	pthread_mutex_unlock(&queue_lock);	
 }
+
 #endif
 
 
