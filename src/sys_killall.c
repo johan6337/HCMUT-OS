@@ -19,7 +19,8 @@
 
 // Declare the external variables
 #ifdef MLQ_SCHED
-extern struct queue_t mlq_ready_queue[MAX_PRIO];
+// extern struct queue_t mlq_ready_queue[MAX_PRIO];
+static struct queue_t mlq_ready_queue[MAX_PRIO];
 #else
 extern struct queue_t ready_queue;
 #endif
