@@ -112,9 +112,10 @@ int __alloc(struct pcb_t *caller, int vmaid, int rgid, int size, int *alloc_addr
   /* TODO: commit the limit increment */
   caller->mm->symrgtbl[rgid].rg_start = old_sbrk; 
   caller->mm->symrgtbl[rgid].rg_end = old_sbrk + size; 
+
   if (caller->mm->symrgtbl[rgid].rg_end - caller->mm->symrgtbl[rgid].rg_start <inc_sz)
   {
-    struct vm_rg_struct * temp = caller->mm->symrgtbl[rgid].rg_end;
+    struct vm_rg_struct * temp = malloc(sizeof(struct vm_rg_struct));
     temp->rg_start = caller->mm->symrgtbl[rgid].rg_end;
     temp->rg_end = old_sbrk + inc_sz;
     enlist_vm_freerg_list(caller->mm,temp);
@@ -124,7 +125,6 @@ int __alloc(struct pcb_t *caller, int vmaid, int rgid, int size, int *alloc_addr
   */
  *alloc_addr =old_sbrk;
   return 0;
-
 }
 
 /*__free - remove a region memory
@@ -144,13 +144,24 @@ int __free(struct pcb_t *caller, int vmaid, int rgid)
 
   if(rgid < 0 || rgid > PAGING_MAX_SYMTBL_SZ)
     return -1;
+
   rgnode = get_symrg_byid(caller->mm,rgid);
-  /* TODO: Manage the collect freed region to freerg_list */
+  if (rgnode->rg_start == rgnode->rg_end || rgnode->rg_end == 0) {
+    printf("Process %d FREE Error: Region wasn't alloc or was freed before\n", caller->pid);
+    return -1;
+}
   
+  /* TODO: Manage the collect freed region to freerg_list */
+  struct vm_rg_struct *temp = malloc(sizeof(struct vm_rg_struct));
+  temp->rg_start = rgnode->rg_start;
+  temp->rg_end = rgnode->rg_end;
+  temp->rg_next = NULL;
+  free(temp);
 
   /*enlist the obsoleted memory region */
+  rgnode->rg_start = rgnode->rg_end = 0;
   enlist_vm_freerg_list(caller->mm, rgnode);
-  
+  free(rgnode);
 
   return 0;
 }
@@ -429,7 +440,8 @@ int free_pcb_memph(struct pcb_t *caller)
   for(pagenum = 0; pagenum < PAGING_MAX_PGN; pagenum++)
   {
     pte= caller->mm->pgd[pagenum];
-
+ 
+    // CRITICAL LOGIC ERROR???
     if (!PAGING_PAGE_PRESENT(pte))
     {
       fpn = PAGING_PTE_FPN(pte);
@@ -452,13 +464,12 @@ int free_pcb_memph(struct pcb_t *caller)
 int find_victim_page(struct mm_struct *mm, int *retpgn)
 {
   struct pgn_t *pg = mm->fifo_pgn;
-  while (pg->pg_next != NULL)
-  {
-    pg= pg->pg_next;
-  }
-  *retpgn = pg->pgn;
+  if(!pg)
+    return -1;
+
   /* TODO: Implement the theorical mechanism to find the victim page */
-  pg = NULL;
+  *retpgn = pg->pgn;    // Get the 1st page number
+  mm->fifo_pgn = pg->pg_next;   // Update the FIFO list
   free(pg);
 
   return 0;
@@ -473,9 +484,10 @@ int find_victim_page(struct mm_struct *mm, int *retpgn)
 int get_free_vmrg_area(struct pcb_t *caller, int vmaid, int size, struct vm_rg_struct *newrg)
 {
   struct vm_area_struct *cur_vma = get_vma_by_num(caller->mm, vmaid);
+  if(!cur_vma)
+    return -1;
 
   struct vm_rg_struct *rgit = cur_vma->vm_freerg_list;
-
   if (rgit == NULL)
     return -1;
 
@@ -484,32 +496,39 @@ int get_free_vmrg_area(struct pcb_t *caller, int vmaid, int size, struct vm_rg_s
 
   /* TODO Traverse on list of free vm region to find a fit space */
   //while (...)
-  // ..
-  struct vm_rg_struct* temp = rgit;
-  while (temp->rg_next != rgit)
-  {
-    temp = temp->rg_next;
-  }
-  while (rgit != NULL)
-  {
-    if (rgit->rg_end - rgit->rg_start >= size)
-    {
+  // ...
+  struct vm_rg_struct *prev = NULL; // Pointer to help traverse the list
+
+  while (rgit) {
+    if(rgit->rg_start + size <= rgit->rg_end) { // Found a fit region
       newrg->rg_start = rgit->rg_start;
-      newrg->rg_end = rgit->rg_start + size;
-      if (rgit->rg_end = size)
-      {
-        temp->rg_next= rgit->rg_next;  
+      newrg->rg_end = newrg->rg_start + size;
+
+      // Update the free region list
+      if(rgit->rg_start + size == rgit->rg_end) {   // If the new region fits exactly
+        // Remove this region from the list
+        if(!prev) {
+            cur_vma->vm_freerg_list = rgit->rg_next; // Update head of the free list
+        } else {
+            prev->rg_next = rgit->rg_next; // Bypass the current node
+        }
+
+        free(rgit); 
+
+      } else {  // If the new region is smaller than the free region
+        rgit->rg_start += size; // Update the start of the free region
       }
-      else if (rgit->rg_end > size)
-      {
-        rgit->rg_start = newrg->rg_end; 
-          
-      }
-      return 0;
+
+    return 0;  
     }
+
+    // Traverse to the next region
+    prev = rgit; 
     rgit = rgit->rg_next;
   }
+
   return -1;
 }
 
-//#endif
+
+
