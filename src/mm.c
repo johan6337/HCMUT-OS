@@ -80,61 +80,60 @@
  /*
   * vmap_page_range - map a range of page at aligned address
   */
- int vmap_page_range(struct pcb_t *caller,           // process call
-                     int addr,                       // start address which is aligned to pagesz
-                     int pgnum,                      // num of mapping page
-                     struct framephy_struct *frames, // list of the mapped frames
-                     struct vm_rg_struct *ret_rg)    // return mapped region, the real mapped fp
- {                                                   // no guarantee all given pages are mapped
-   if (caller == NULL || caller->mm == NULL || frames == NULL || ret_rg == NULL) {
-     return -1;
-   }
-   struct framephy_struct *fpit;
-   int pgit = 0;
-   int pgn = PAGING_PGN(addr);
- 
-   /* TODO: update the rg_end and rg_start of ret_rg 
-   //ret_rg->rg_end =  ....
-   //ret_rg->rg_start = ...
-   //ret_rg->vmaid = ...
+int vmap_page_range(struct pcb_t *caller,           // process call
+          int addr,                       // start address which is aligned to pagesz
+          int pgnum,                      // num of mapping page
+          struct framephy_struct *frames, // list of the mapped frames
+          struct vm_rg_struct *ret_rg)    // return mapped region, the real mapped fp
+{                                                   // no guarantee all given pages are mapped
+  if (caller == NULL || caller->mm == NULL || frames == NULL || ret_rg == NULL) {
+    return -1;
+  }
+
+  int pgit = 0;
+  int pgn = PAGING_PGN(addr);
+
+  /* TODO: update the rg_end and rg_start of ret_rg 
+  //ret_rg->rg_end =  ....
+  //ret_rg->rg_start = ...
+  //ret_rg->vmaid = ...
+  */
+  ret_rg->rg_start = addr;
+  ret_rg->rg_end = ret_rg->rg_start + pgnum * PAGING_PAGESZ;
+
+  struct vm_area_struct *vma = caller->mm->mmap;
+  while (vma != NULL) {
+    if (addr >= vma->vm_start && addr < vma->vm_end) {
+      break;
+    }
+    vma = vma->vm_next;
+  }
+
+  if (vma == NULL) {
+    return -1;
+  }
+
+  /* TODO map range of frame to address space
+   *      [addr to addr + pgnum*PAGING_PAGESZ
+   *      in page table caller->mm->pgd[]
    */
-   ret_rg->rg_start = addr;
-   ret_rg->rg_end = ret_rg->rg_start + pgnum * PAGING_PAGESZ;
- 
-   struct vm_area_struct *vma = caller->mm->mmap;
-   while (vma) {
-     if (addr >= vma->vm_start && addr < vma->vm_end) {
-       break;
-     }
-     vma = vma->vm_next;
-   }
- 
-   if(vma == NULL) {
-     return -1; 
-   }
- 
-   /* TODO map range of frame to address space
-    *      [addr to addr + pgnum*PAGING_PAGESZ
-    *      in page table caller->mm->pgd[]
-    */
-   for (; pgit < pgnum; ++pgit)
-   {
-     if(frames == NULL) {
-       return -1;
-     }
- 
-     fpit = frames;
-     pte_set_fpn(&caller->mm->pgd[pgn + pgit], fpit->fpn);
-     frames = frames->fp_next;
-     free(fpit);
- 
-   /* Tracking for later page replacement activities (if needed)
-    * Enqueue new usage page */
-     enlist_pgn_node(&caller->mm->fifo_pgn, pgn + pgit);
-   }
- 
-   return 0;
- }
+  for (pgit = 0; pgit < pgnum; pgit++) {
+    if (frames == NULL) {
+      return -1;
+    }
+
+    struct framephy_struct *fpit = frames;
+    pte_set_fpn(&caller->mm->pgd[pgn + pgit], fpit->fpn);
+    frames = frames->fp_next;
+    free(fpit);
+
+    /* Tracking for later page replacement activities (if needed)
+     * Enqueue new usage page */
+    enlist_pgn_node(&caller->mm->fifo_pgn, pgn + pgit);
+  }
+
+  return 0;
+}
  
  /*
   * alloc_pages_range - allocate req_pgnum of frame in ram
