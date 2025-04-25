@@ -9,18 +9,10 @@ int empty(struct queue_t * q) {
 
 void enqueue(struct queue_t * q, struct pcb_t * proc) {
         /* TODO: put a new process to queue [q] */
-        if(q == NULL || proc == NULL)
-        {
+        if (proc == NULL || q == NULL || q->size == MAX_QUEUE_SIZE) {
                 return;
         }
-
-        if(q->size == MAX_QUEUE_SIZE)
-        {
-                printf("Exceed queue size (MAX: 10) !!! \n");
-                return;
-        }
-        q->proc[q->size] = proc;
-        q->size++;
+        q->proc[q->size++] = proc;
 
 }
 
@@ -29,17 +21,19 @@ struct pcb_t * dequeue(struct queue_t * q) {
          * in the queue [q] and remember to remove it from q
          * */
 
-         if(q == NULL || q->size == 0)
-         {
-                return NULL;
-         }
-        struct pcb_t* to_return = q->proc[0];
-        for(int i = 0; i < q->size - 1; i++)
+         if (q == NULL || q->size == 0)
         {
-                q->proc[i] = q->proc[i + 1];
+                return NULL;
         }
-        q->size--;
-        return to_return;
+        // sort_queue(q);
+        struct pcb_t * ans = q->proc[0];
+        int i;
+        for (i = 1; i < q->size; i++) {
+                q->proc[i - 1] = q->proc[i];
+                q->proc[i] = NULL;
+        }
+        q->size -= 1;
+        return ans;
 }
 
 void remove_from_queue(struct queue_t *q, struct pcb_t *proc)

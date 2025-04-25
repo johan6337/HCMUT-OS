@@ -54,55 +54,22 @@ void init_scheduler(void) {
  */
 struct pcb_t * get_mlq_proc(void) {
     struct pcb_t * proc = NULL;
-
-    // Lock the queue to ensure thread safety
+    /* TODO: get a process from PRIORITY [ready_queue].
+    * Remember to use lock to protect the queue.
+    */
     pthread_mutex_lock(&queue_lock);
-
-    unsigned long prio;
-    int first_non_empty_queue = -1;
-    int process_found = 0;
-
-    // Iterate through all priority levels
-    for (prio = 0; prio < MAX_PRIO; prio++) {
-        if (!empty(&mlq_ready_queue[prio])) {
-            // Mark the first non-empty queue
-            if (first_non_empty_queue == -1) {
-                first_non_empty_queue = prio;
-            }
-
-            // Check if the current priority level has available slots
-            if (slot[prio] > 0) {
-                proc = dequeue(&mlq_ready_queue[prio]);
-                if (proc != NULL) {
-                    process_found = 1;
-                    slot[prio]--;
-                    break;
-                }
-            }
+    int i;
+    for (i = 0; i < MAX_PRIO; ++i)
+    {
+        if (empty(&mlq_ready_queue[i]) || slot[i] == 0)
+        {
+            slot[i] = MAX_PRIO - i;
+            continue;
         }
+        proc = dequeue(&mlq_ready_queue[i]);
+        slot[i]--;
+        break;
     }
-
-    // If no process is found in any queue
-    if (first_non_empty_queue == -1) {
-        pthread_mutex_unlock(&queue_lock);
-        return NULL;
-    } else {
-        // If no process could run due to exhausted slots
-        if (process_found == 0) {
-            // Reset all slots to their initial values
-            for (prio = 0; prio < MAX_PRIO; prio++) {
-                slot[prio] = MAX_PRIO - prio;
-            }
-
-            // Dequeue a process from the first non-empty queue
-            proc = dequeue(&mlq_ready_queue[first_non_empty_queue]);
-            if (proc != NULL) {
-                slot[prio]--;
-            }
-        }
-    }
-
-    // Unlock the queue and return the selected process
     pthread_mutex_unlock(&queue_lock);
     return proc;
 }
@@ -124,19 +91,28 @@ struct pcb_t * get_proc(void) {
 }
 
 void put_proc(struct pcb_t * proc) {  
-	// /* TODO: put running proc to running_list */
-	// pthread_mutex_lock(&queue_lock);
-    // enqueue(&running_list, proc);
-	// pthread_mutex_unlock(&queue_lock);	
+	proc->ready_queue = &ready_queue;
+	proc->mlq_ready_queue = mlq_ready_queue;
+	proc->running_list = &running_list;
 
-	put_mlq_proc(proc);
+	/* TODO: put running proc to running_list */
+	pthread_mutex_lock(&queue_lock);
+	enqueue(proc->running_list, proc);
+	pthread_mutex_unlock(&queue_lock);
+
+	return put_mlq_proc(proc);
 }
 
 void add_proc(struct pcb_t * proc) {
-	// /* TODO: put running proc to running_list */
-	// enqueue(&running_list, proc);
-
-	add_mlq_proc(proc);
+	proc->ready_queue = &ready_queue;
+	proc->mlq_ready_queue = mlq_ready_queue;
+	proc->running_list = & running_list;
+	/* TODO: put running proc to running_list */
+	pthread_mutex_lock(&queue_lock);
+	enqueue(proc->running_list, proc);
+	pthread_mutex_unlock(&queue_lock);
+	
+	return add_mlq_proc(proc);
 }
 
 #else
