@@ -33,7 +33,7 @@ struct vm_area_struct {
    unsigned long vm_start;
    unsigned long vm_end;
 
-   unsigned long sbrk;
+   unsigned long sbrk;  // the actual end of the memory area
 /*
  * Derived field
  * unsigned long vm_limit = vm_end - vm_start

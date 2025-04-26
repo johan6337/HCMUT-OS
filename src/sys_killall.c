@@ -57,7 +57,7 @@ int __sys_killall(struct pcb_t *caller, struct sc_regs* regs)
     int terminated_count = 0; // Count of terminated processes
     int processed_pids[1000] = {0}; // Track already processed PIDs
 
-    
+        
 #ifdef MLQ_SCHED
     if(caller->mlq_ready_queue) {
         for(int prio = 0; prio < MAX_PRIO; prio++) {

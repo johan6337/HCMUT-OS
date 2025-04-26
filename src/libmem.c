@@ -47,13 +47,14 @@ int __alloc(struct pcb_t *caller, int vmaid, int rgid, int size, int *alloc_addr
 {
    struct vm_rg_struct rgnode;
  
-   // Better error checking with more descriptive messages
+   // Validate the region id
    if(rgid < 0 || rgid > PAGING_MAX_SYMTBL_SZ) {
      printf("-------Process %d alloc error: Invalid region ID %d (max: %d)-------\n", 
             caller->pid, rgid, PAGING_MAX_SYMTBL_SZ);
      return -1;
    }
  
+   // Validate if the region is already allocated
    if (caller->mm->symrgtbl[rgid].rg_start < caller->mm->symrgtbl[rgid].rg_end) {
      printf("-------Process %d alloc error: Region %d already allocated-------\n", 
             caller->pid, rgid);

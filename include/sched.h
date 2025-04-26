@@ -2,12 +2,15 @@
 #define QUEUE_H
 
 #include "common.h"
+// #include <pthread.h>
 
 #ifndef MLQ_SCHED
 #define MLQ_SCHED
 #endif
 
 #define MAX_PRIO 140
+
+// extern pthread_mutex_t queue_lock;
 
 int queue_empty(void);
 
