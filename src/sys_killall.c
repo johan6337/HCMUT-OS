@@ -20,6 +20,7 @@
 #include <stdlib.h>
 
 static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
+
 // Helper function to get the basename of a path
 const char* get_proc_name(const char *path) {
     const char *proc_name = path;
@@ -35,7 +36,7 @@ const char* get_proc_name(const char *path) {
 
 int __sys_killall(struct pcb_t *caller, struct sc_regs* regs)
 {
-    printf("-------sys_killall executed-------\n");
+    printf("===== EXECUTING SYS_KILLALL =====\n");
 
     char proc_name[100];
     uint32_t data;
@@ -55,9 +56,43 @@ int __sys_killall(struct pcb_t *caller, struct sc_regs* regs)
 
     pthread_mutex_lock(&lock);
     int terminated_count = 0; // Count of terminated processes
-    int processed_pids[1000] = {0}; // Track already processed PIDs
+    int list_visited[1000] = {-1}; // Track already processed PIDs in running list
+    int queue_visited[1000] = {-1}; // Track already processed PIDs in queue
 
-        
+    if (caller->running_list) {
+        struct queue_t *running = caller->running_list;
+    
+        if (running->size > 0) {
+            for (i = running->size - 1; i >= 0; i--) {
+                struct pcb_t *proc = running->proc[i];
+
+                // Validate process
+                if (proc == NULL || proc->pid >= 1000 || list_visited[(int)proc->pid] == 1) continue;
+
+                // printf("[CHECKING IN RUNNING LIST] Process with PID: %d - Name: \"%s\"\n", proc->pid, get_proc_name(proc->path));
+
+                // Now check for name match
+                if (strcmp(get_proc_name(proc->path), proc_name) == 0) {
+                    // Mark as visited
+                    list_visited[proc->pid] = 1;
+                    
+                    // Remove from queue
+                    int j;
+                    for (j = i; j < running->size - 1; j++) {
+                        running->proc[j] = running->proc[j + 1];
+                    }
+                    running->size--;
+                    terminated_count++;
+
+                    printf("[TERMINATED FROM RUNNING LIST] Process with PID: %d - Name: \"%s\"\n", proc->pid, get_proc_name(proc->path));
+                    // free(proc);
+                }
+
+                // printf("List size: %d\n", running->size);
+            }
+        }
+    }
+
 #ifdef MLQ_SCHED
     if(caller->mlq_ready_queue) {
         for(int prio = 0; prio < MAX_PRIO; prio++) {
@@ -66,39 +101,47 @@ int __sys_killall(struct pcb_t *caller, struct sc_regs* regs)
             for(int m = mlq_queue->size - 1; m >= 0; m--) {
                 struct pcb_t *proc = mlq_queue->proc[m];
 
-                if (!proc || processed_pids[proc->pid]) continue;
-                
-                printf("[CHECKING] Process with PID: %d - Name: \"%s\"\n", proc->pid, proc_name);
-                
+                if (!proc || queue_visited[(int)proc->pid] == 1) continue;
+
+                // printf("[CHECKING IN MLQ_READY_QUEUE] Process with PID: %d - Name: \"%s\"\n", proc->pid, get_proc_name(proc->path));
+                                
                 if(strcmp(get_proc_name(proc->path), proc_name) == 0) {                    
-                    // Mark as terminated with value expected by get_mlq_proc
+                    // Mark as terminated
                     proc->is_terminated = 1;
-                    processed_pids[proc->pid] = 1;
+                    queue_visited[proc->pid] = 1;
                     terminated_count++;
+                    mlq_queue->size--;
                     
-                    // Don't remove from queue - let the scheduler handle that
-                    // The scheduler will discard terminated processes
-                    printf("[TERMINATED] Process with PID: %d - Name: \"%s\"\n", proc->pid, proc_name);
+                    printf("[TERMINATED FROM MLQ_READY_QUEUE] Process with PID: %d - Name: \"%s\"\n", proc->pid, get_proc_name(proc->path));
+                    free(proc);
                 }
+
+                // printf("Queue size: %d\n", mlq_queue->size);
             }
         }
     }
+
 #else
     // For non-MLQ scheduler
     if(caller->ready_queue) {
         for(int m = caller->ready_queue->size - 1; m >= 0; m--) {
             struct pcb_t *proc = caller->ready_queue->proc[m];
 
-            if (!proc || processed_pids[proc->pid]) continue;
-            printf("[CHECKING] Process with PID: %d - Name: \"%s\"\n", proc->pid, proc_name);
+            if (!proc || queue_visited[proc->pid]) continue;
+
+            printf("[CHECKING IN READY_QUEUE] Process with PID: %d - Name: \"%s\"\n", proc->pid, get_proc_name(proc->path));
             
             if(strcmp(get_proc_name(proc->path), proc_name) == 0) {
                 proc->is_terminated = 1;
-                processed_pids[proc->pid] = 1;
+                queue_visited[(int)proc->pid] = 1;
                 terminated_count++;
+                caller->ready_queue->size--;
 
-                printf("[TERMINATED] process with PID: %d - Name: \"%s\"\n", proc->pid, proc_name);
+                printf("[TERMINATED FROM READY_QUEUE] Process with PID: %d - Name: \"%s\"\n", proc->pid, get_proc_name(proc->path));
+                free(proc);
             }
+
+            printf("Queue size: %d\n", mlq_queue->size);
         }
     }
 #endif
