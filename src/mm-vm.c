@@ -87,13 +87,16 @@
    /* TODO validate the planned memory area is not overlapped */
    struct vm_area_struct *vma = caller->mm->mmap;
  
-  for (; vma != NULL; vma = vma->vm_next) {
-     if (vma->vm_start >= vmastart && vma->vm_start < vmaend) {
-        printf("vm area overlap\n");
-        return -1;
+   while (vma != NULL)
+   {
+     if ((vmastart < vma->vm_start && vmaend > vma->vm_start))
+     {
+       printf("vm area overlap\n");
+       return -1;
      }
-  }
-  return 0;
+     vma = vma->vm_next;
+   }
+   return 0;
  }
  
  /*inc_vma_limit - increase vm area limits to reserve space for new variable
@@ -127,15 +130,13 @@
    /* TODO: Obtain the new vm area based on vmaid */
    //cur_vma->vm_end... 
    // inc_limit_ret...
-  int updated_vm_end = cur_vma->vm_end + inc_sz; // Calculate new end boundary
-  cur_vma->vm_end = updated_vm_end;
-  cur_vma->sbrk += inc_sz;
-
-  int map_status = vm_map_ram(caller, area->rg_start, area->rg_end, old_end, incnumpage, newrg);
-  if (map_status < 0)
-     return -1; // Mapping failed
-
-  return 0;
+   cur_vma->vm_end = cur_vma->vm_end + inc_sz;// Update vm_end to new boundary
+   cur_vma->sbrk = cur_vma->sbrk + inc_sz;
+   if (vm_map_ram(caller, area->rg_start, area->rg_end, 
+                     old_end, incnumpage , newrg) < 0)
+     return -1; /* Map the memory to MEMRAM */
+ 
+   return 0;
  }
  // #endif
  
